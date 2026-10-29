@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1730" />
+  <meta name="description" content="会呼吸的天气：可把玩的天气水晶球、今日温度河、穿衣小人，和风天气实时数据。" />
+  <title>天气 · 会呼吸的一版</title>
+  <link rel="stylesheet" href="mobile.css" />
+</head>
+<body data-theme="sunny">
+  <!-- 背景：随天气变化的渐变天空 + 极光带 + 雨丝（纯装饰） -->
+  <div class="sky" aria-hidden="true">
+    <span class="blob blob-1"></span>
+    <span class="blob blob-2"></span>
+    <span class="blob blob-3"></span>
+    <div class="aurora"></div>
+    <div class="rain-layer" id="rainLayer"></div>
+  </div>
+
+  <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+
+  <div class="phone">
+    <!-- ===== 顶栏：搜索 ===== -->
+    <header class="topbar">
+      <form class="search" id="searchForm" autocomplete="off" novalidate>
+        <input
+          id="searchInput"
+          type="search"
+          placeholder="搜索城市，比如 杭州"
+          aria-label="搜索城市"
+        />
+        <button type="submit" class="search__btn">搜索</button>
+        <ul class="suggest" id="suggest" role="listbox" hidden></ul>
+      </form>
+    </header>
+
+    <main class="scroll">
+      <!-- ===== 主画面 ===== -->
+      <section class="hero" id="hero" aria-labelledby="cityName">
+        <div class="hero__head">
+          <div class="hero__city">
+            <h1 class="city" id="cityName">正在定位…</h1>
+            <p class="city__sub" id="citySub">—</p>
+          </div>
+          <button type="button" class="sound" id="soundBtn" aria-pressed="false">
+            <span class="sound__icon">🎧</span><span class="sound__text">环境音</span>
+          </button>
+        </div>
+
+        <!-- 可拖动把玩的天气水晶球 -->
+        <div class="hero__stage">
+          <div class="ball" id="ballWrap">
+            <canvas id="ballCanvas"></canvas>
+            <span class="ball__hint">可以拖 · 点一下晃一晃</span>
+          </div>
+
+          <div class="hero__readout">
+            <div class="hero__temp">
+              <span class="temp" id="temp">--</span>
+              <span class="unit">°</span>
+            </div>
+            <p class="desc">
+              <span class="desc__icon" id="nowIcon" aria-hidden="true">🌤️</span>
+              <span id="desc">—</span>
+            </p>
+            <p class="feels" id="feels">体感 --°</p>
+          </div>
+        </div>
+
+        <p class="mood" id="moodLine">正在感受今天的天气…</p>
+
+        <!-- 今日温度河：24 小时气温连成一条会呼吸的曲线 -->
+        <div class="river">
+          <div class="river__head">
+            <span>今日温度河</span>
+            <strong id="riverTip">—</strong>
+          </div>
+          <canvas id="riverCanvas"></canvas>
+        </div>
+
+        <div class="range">
+          <div class="range__track">
+            <span class="range__fill" id="rangeFill"></span>
+            <span class="range__dot" id="rangeDot"></span>
+          </div>
+          <p class="range__text">
+            <span id="rangeMin">最低 --</span>
+            <span id="rangeNow">现在 --</span>
+            <span id="rangeMax">最高 --</span>
+          </p>
+        </div>
+
+        <p class="obs" id="obsTime">正在获取天气…</p>
+      </section>
+
+      <!-- ===== 提醒条 ===== -->
+      <div class="alert" id="alert" role="status" aria-live="polite" hidden>
+        <span class="alert__icon" id="alertIcon">🌧️</span>
+        <div class="alert__body">
+          <strong id="alertTitle">降水提醒</strong>
+          <p id="alertText"></p>
+        </div>
+      </div>
+
+      <!-- ===== 今天穿什么：衣服层数跟着体感温度变 ===== -->
+      <section class="card doll-card" aria-labelledby="dollTitle">
+        <h3 class="card__title" id="dollTitle">今天穿什么</h3>
+        <div class="doll" id="dollBox" data-level="2">
+          <svg viewBox="0 0 96 150" role="img" aria-label="穿衣示意">
+            <!-- 身体底色 -->
+            <ellipse cx="48" cy="141" rx="26" ry="5" fill="rgba(0,0,0,.25)" />
+            <circle cx="48" cy="30" r="17" fill="#f6d3b4" />
+            <path d="M31 27a17 17 0 0 1 34 0c0-12-8-16-17-16s-17 4-17 16z" fill="#40372f" />
+            <circle cx="42" cy="31" r="1.9" fill="#3a2f2a" />
+            <circle cx="54" cy="31" r="1.9" fill="#3a2f2a" />
+            <path d="M43 38q5 4 10 0" stroke="#c98f74" stroke-width="1.6" fill="none" stroke-linecap="round" />
+            <rect x="45" y="46" width="6" height="10" rx="3" fill="#eec39f" />
+            <rect x="40" y="106" width="7" height="30" rx="3.5" fill="#eec39f" />
+            <rect x="49" y="106" width="7" height="30" rx="3.5" fill="#eec39f" />
+
+            <!-- 第 1 层：短袖 -->
+            <g class="g-l1">
+              <path d="M31 54h34l4 20-6 4v22H33V78l-6-4z" fill="#5ec2f5" />
+            </g>
+            <!-- 第 2 层：长袖外套 -->
+            <g class="g-l2">
+              <path d="M31 54h34l4 20-6 4v22H33V78l-6-4z" fill="#2f6f9e" />
+              <rect x="20" y="72" width="12" height="26" rx="6" fill="#2f6f9e" />
+              <rect x="64" y="72" width="12" height="26" rx="6" fill="#2f6f9e" />
+            </g>
+            <!-- 第 3 层：围巾 -->
+            <g class="g-l3">
+              <path d="M34 50h28v9H34z" fill="#e2574c" />
+              <path d="M56 58h8v26h-8z" fill="#c9453c" />
+            </g>
+            <!-- 第 4 层：帽子 -->
+            <g class="g-l4">
+              <path d="M28 22a20 20 0 0 1 40 0z" fill="#e2574c" />
+              <rect x="26" y="20" width="44" height="6" rx="3" fill="#c9453c" />
+              <circle cx="48" cy="9" r="4" fill="#f7fbff" />
+            </g>
+            <!-- 第 5 层：手套 + 厚裤 -->
+            <g class="g-l5">
+              <rect x="38" y="104" width="20" height="34" rx="8" fill="#37507a" />
+              <circle cx="22" cy="100" r="6" fill="#f2f6ff" />
+              <circle cx="74" cy="100" r="6" fill="#f2f6ff" />
+            </g>
+          </svg>
+        </div>
+        <p class="doll__tip" id="dollTip">—</p>
+      </section>
+
+      <!-- ===== 逐时 ===== -->
+      <section class="card hourly" id="hourlyCard" aria-labelledby="hourlyTitle" hidden>
+        <h3 class="card__title" id="hourlyTitle">未来 24 小时</h3>
+        <ol class="hours" id="hours"></ol>
+      </section>
+
+      <!-- ===== 7 天 ===== -->
+      <section class="card forecast" aria-labelledby="forecastTitle">
+        <h3 class="card__title" id="forecastTitle">未来 7 天</h3>
+        <ol class="days" id="days"></ol>
+      </section>
+
+      <!-- ===== 日出日落 ===== -->
+      <section class="card sun-card" aria-labelledby="sunTitle">
+        <h3 class="card__title" id="sunTitle">日出 · 日落</h3>
+        <div class="sun-arc">
+          <svg viewBox="0 0 200 100" role="img" aria-label="太阳轨迹示意">
+            <path class="sun-arc__line" d="M10 90 A 90 90 0 0 1 190 90" />
+            <circle class="sun-arc__dot" id="sunDot" cx="10" cy="90" r="7" />
+            <line class="sun-arc__base" x1="4" y1="90" x2="196" y2="90" />
+          </svg>
+        </div>
+        <div class="sun-times">
+          <div><span>日出</span><strong id="sunrise">--:--</strong></div>
+          <div><span>日落</span><strong id="sunset">--:--</strong></div>
+        </div>
+        <div class="moon"><span>月相</span><strong id="moonPhase">—</strong></div>
+        <p class="day-length" id="dayLength">—</p>
+      </section>
+
+      <!-- ===== 空气质量 ===== -->
+      <section class="card air" id="airCard" aria-labelledby="airTitle" hidden>
+        <h3 class="card__title" id="airTitle">空气质量</h3>
+        <div class="air__main">
+          <div class="air__score">
+            <span class="air__aqi" id="aqiValue">--</span>
+            <span class="air__scale">AQI</span>
+          </div>
+          <div class="air__meta">
+            <strong id="aqiCategory">—</strong>
+            <span id="aqiPrimary">—</span>
+          </div>
+        </div>
+        <ul class="air__pollutants" id="pollutants"></ul>
+      </section>
+
+      <!-- ===== 今日详情 ===== -->
+      <section class="card stats-card" aria-labelledby="statsTitle">
+        <h3 class="card__title" id="statsTitle">今日详情</h3>
+        <ul class="stats">
+          <li><span>湿度</span><strong id="humidity">--</strong></li>
+          <li><span>风力</span><strong id="wind">--</strong></li>
+          <li><span>气压</span><strong id="pressure">--</strong></li>
+          <li><span>能见度</span><strong id="vis">--</strong></li>
+        </ul>
+      </section>
+
+      <!-- ===== 生活指数 ===== -->
+      <section class="card indices" id="indicesCard" aria-labelledby="indicesTitle" hidden>
+        <h3 class="card__title" id="indicesTitle">今日生活指数</h3>
+        <ul class="indices__list" id="indicesList"></ul>
+      </section>
+
+      <!-- ===== 实时影像 ===== -->
+      <section class="card live" id="liveCard" aria-labelledby="liveTitle">
+        <h3 class="card__title" id="liveTitle">实时影像</h3>
+        <div class="live__frame" id="liveFrame">
+          <canvas id="liveCanvas"></canvas>
+          <div class="live__hud">
+            <span class="live__badge"><i></i>LIVE</span>
+            <div class="live__hud-right">
+              <button type="button" class="live__voice" id="liveVoice">🔊 听播报</button>
+              <span class="live__time" id="liveTime">--:--:--</span>
+            </div>
+          </div>
+          <div class="live__caption">
+            <strong id="liveCity">—</strong>
+            <span id="liveMeta">—</span>
+          </div>
+          <div class="anchor" id="liveAnchor" aria-hidden="true">
+            <svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="60" cy="60" rx="29" ry="28" fill="#2b2b33" />
+              <ellipse cx="60" cy="70" rx="26" ry="30" fill="#f3c9a9" />
+              <rect x="52" y="96" width="16" height="18" rx="8" fill="#e8b58f" />
+              <path d="M16 150c0-27 15-42 44-42s44 15 44 42z" fill="#2f4b6e" />
+              <path d="M47 112h26l-13 25z" fill="#f7fbff" />
+              <path d="M57 118h6l2 20-5 5-5-5z" fill="#3f9be6" />
+              <rect x="43" y="59" width="13" height="3" rx="1.5" fill="#3a2f2a" />
+              <rect x="64" y="59" width="13" height="3" rx="1.5" fill="#3a2f2a" />
+              <circle cx="50" cy="70" r="3.2" fill="#2b2b33" />
+              <circle cx="70" cy="70" r="3.2" fill="#2b2b33" />
+              <ellipse class="anchor__mouth" cx="60" cy="84" rx="7" ry="3" fill="#b3493f" />
+              <path d="M88 60c7 1 10 8 8 15" stroke="#243a52" stroke-width="3"
+                fill="none" stroke-linecap="round" />
+              <circle cx="95" cy="78" r="4" fill="#243a52" />
+            </svg>
+          </div>
+          <div class="live__ticker">
+            <div class="live__ticker-inner" id="liveTicker"><span></span><span></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 位置 ===== -->
+      <section class="card geo-card" aria-labelledby="geoTitle">
+        <h3 class="card__title" id="geoTitle">位置与方位</h3>
+        <div class="geo">
+          <div class="geo__compass" aria-hidden="true">
+            <span class="geo__n">N</span>
+            <span class="geo__needle" id="geoNeedle"></span>
+          </div>
+          <div class="geo__text">
+            <span class="geo__coord" id="geoCoord">北纬 -- · 东经 --</span>
+            <span class="geo__bearing" id="geoBearing">正在获取你的位置…</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <a href="index.html">切回桌面版</a>
+        <span>数据来源：和风天气 · 每 60 秒自动刷新</span>
+      </footer>
+    </main>
+  </div>
+
+  <script src="regions.js"></script>
+  <script src="script.js"></script>
+  <script src="mobile-extra.js"></script>
+</body>
+</html>
